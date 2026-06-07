@@ -299,6 +299,32 @@
 </head>
 <body>
 
+<div id="loginScreen">
+
+  <div class="card-auto" style="max-width:380px;margin:80px auto;">
+    <span class="auto-icono">🔐</span>
+
+    <div class="auto-nombre">DFR AUTO</div>
+
+    <div class="estado-label libre" style="font-size:24px;margin-bottom:20px;">
+      INICIAR SESIÓN
+    </div>
+
+    <input type="email" id="email" placeholder="Correo electrónico">
+    <input type="password" id="password" placeholder="Contraseña">
+
+    <button class="btn-principal liberar" onclick="iniciarSesion()">
+      INGRESAR
+    </button>
+
+    <div id="loginError"></div>
+
+  </div>
+
+</div>
+
+<div id="appScreen" style="display:none;">
+
 <header>
   <div class="logo">DFR <span>AUTO</span></div>
   <div class="badge-online wait" id="badgeOnline">
@@ -356,6 +382,7 @@
       <button id="btnConfirmar" onclick="ejecutarAccion()">Confirmar</button>
     </div>
   </div>
+
 </div>
 
 <!-- Firebase -->
