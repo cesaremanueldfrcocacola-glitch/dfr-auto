@@ -434,6 +434,22 @@ from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
+  const auth = getAuth(app);
+  window.iniciarSesion = function () {
+  const email = document.getElementById("email").value;
+  const pass  = document.getElementById("password").value;
+  const errorBox = document.getElementById("loginError");
+
+  signInWithEmailAndPassword(auth, email, pass)
+    .then(() => {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("appScreen").style.display = "block";
+      errorBox.textContent = "";
+    })
+    .catch((error) => {
+      errorBox.textContent = "Error: " + error.message;
+    });
+};
 
   // Referencias
   const refOnline  = ref(db, '/auto/online');
