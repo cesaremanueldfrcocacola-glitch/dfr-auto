@@ -435,6 +435,17 @@ from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
   const auth = getAuth(app);
+  onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // Usuario logueado
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("appScreen").style.display = "block";
+  } else {
+    // Usuario NO logueado
+    document.getElementById("loginScreen").style.display = "block";
+    document.getElementById("appScreen").style.display = "none";
+  }
+});
   window.iniciarSesion = function () {
   const email = document.getElementById("email").value;
   const pass  = document.getElementById("password").value;
