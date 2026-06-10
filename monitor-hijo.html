@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Monitor DFR - Dispositivo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0a0f1e;
+    color: #f1f5f9;
+    font-family: -apple-system, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wrap {
+    text-align: center;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #334155;
+    transition: background 0.4s;
+  }
+  .dot.active { background: #22c55e; animation: blink 1.5s infinite; }
+  @keyframes blink {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+  p { font-size: 13px; color: #64748b; line-height: 1.5; }
+  #msg { font-size: 14px; color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="dot" id="dot"></div>
+  <div id="msg">Iniciando...</div>
+  <p>Esta pantalla puede minimizarse.<br/>El servicio sigue activo en segundo plano.</p>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script>
+// ── Firebase config ──────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyDo1ywPhAW50qEpFWwBu2uEUwX-AfxTWK0",
+  authDomain:        "stockdfr-94cd4.firebaseapp.com",
+  databaseURL:       "https://stockdfr-94cd4-default-rtdb.firebaseio.com",
+  projectId:         "stockdfr-94cd4",
+  storageBucket:     "stockdfr-94cd4.firebasestorage.app",
+  messagingSenderId: "600419356379",
+  appId:             "1:600419356379:web:2b1bd2b32e88f71f6886fe"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── Refs Firebase ─────────────────────────────────────────────────
+const REF_CONTROL = db.ref('/monitor/control');
+const REF_OFFER   = db.ref('/monitor/offer');
+const REF_ANSWER  = db.ref('/monitor/answer');
+const REF_ICE_H   = db.ref('/monitor/ice_hijo');
+const REF_ICE_P   = db.ref('/monitor/ice_padre');
+const REF_STATUS  = db.ref('/monitor/status');
+
+// ── UI ────────────────────────────────────────────────────────────
+const dot = document.getElementById('dot');
+const msg = document.getElementById('msg');
+
+function setMsg(text, online) {
+  msg.textContent = text;
+  dot.className = 'dot' + (online ? ' active' : '');
+}
+
+// ── Estado ───────────────────────────────────────────────────────
+let pc = null;
+let localStream = null;
+let transmitting = false;
+
+const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+// ── Marcar como online ────────────────────────────────────────────
+REF_STATUS.set({ online: true });
+REF_STATUS.onDisconnect().set({ online: false });
+
+// ── Pedir micrófono ───────────────────────────────────────────────
+async function getMic() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl:  false,
+        sampleRate: 16000
+      },
+      video: false
+    });
+    setMsg('Micrófono listo. Esperando al padre...', false);
+    return true;
+  } catch(e) {
+    setMsg('⚠️ Sin acceso al micrófono: ' + e.message, false);
+    return false;
+  }
+}
+
+// ── Crear conexión WebRTC ─────────────────────────────────────────
+async function startTransmission() {
+  if (transmitting) return;
+  transmitting = true;
+  setMsg('Conectando...', true);
+
+  // Limpiar Firebase
+  await REF_OFFER.remove();
+  await REF_ANSWER.remove();
+  await REF_ICE_H.remove();
+  await REF_ICE_P.remove();
+
+  pc = new RTCPeerConnection(ICE_SERVERS);
+
+  // Agregar pistas de audio
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  // ICE candidates del hijo → Firebase
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      REF_ICE_H.push(e.candidate.toJSON());
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') {
+      setMsg('✅ Transmitiendo audio en vivo', true);
+    } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      setMsg('Conexión perdida. Esperando...', false);
+      transmitting = false;
+      pc.close(); pc = null;
+    }
+  };
+
+  // Escuchar ICE del padre
+  REF_ICE_P.on('child_added', async (snap) => {
+    const cand = snap.val();
+    if (pc && cand && pc.remoteDescription) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch(e) {}
+    }
+  });
+
+  // Crear offer
+  const offer = await pc.createOffer({ offerToReceiveAudio: false });
+  await pc.setLocalDescription(offer);
+  await REF_OFFER.set({ type: offer.type, sdp: offer.sdp });
+
+  // Esperar answer del padre
+  REF_ANSWER.on('value', async (snap) => {
+    const answer = snap.val();
+    if (!answer || !pc || pc.remoteDescription) return;
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      setMsg('Sincronizando audio...', true);
+    } catch(e) {}
+  });
+}
+
+// ── Detener transmisión ───────────────────────────────────────────
+function stopTransmission() {
+  if (!transmitting && !pc) return;
+  transmitting = false;
+  if (pc) { pc.close(); pc = null; }
+  REF_OFFER.remove();
+  REF_ANSWER.remove();
+  REF_ICE_H.remove();
+  REF_ICE_P.remove();
+  setMsg('Micrófono en espera. Padre desconectado.', false);
+}
+
+// ── Escuchar señal del padre ──────────────────────────────────────
+async function init() {
+  const ok = await getMic();
+  if (!ok) return;
+
+  REF_CONTROL.on('value', async (snap) => {
+    const val = snap.val();
+    if (val && val.active === true) {
+      if (!transmitting) {
+        await startTransmission();
+      }
+    } else {
+      stopTransmission();
+    }
+  });
+}
+
+// ── Arrancar ──────────────────────────────────────────────────────
+init();
+
+// ── Mantener vivo (evita que el navegador duerma el JS) ───────────
+setInterval(() => {
+  REF_STATUS.set({ online: true, ping: Date.now() });
+}, 25000);
+</script>
+</body>
+</html>
