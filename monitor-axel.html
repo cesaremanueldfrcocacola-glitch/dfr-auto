@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Monitor DFR - Axel</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:#0a0f1e;color:#f1f5f9;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;}
+  .wrap{text-align:center;padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .dot{width:14px;height:14px;border-radius:50%;background:#334155;transition:background 0.4s;}
+  .dot.active{background:#22c55e;animation:blink 1.5s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  p{font-size:13px;color:#64748b;line-height:1.5;}
+  #msg{font-size:14px;color:#94a3b8;}
+  .nombre{font-size:20px;font-weight:700;color:#f1f5f9;}
+  .gps{font-size:12px;color:#22c55e;margin-top:4px;}
+  .mic-btn{margin-top:8px;padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;display:none;}
+  .mic-btn.visible{display:block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="dot" id="dot"></div>
+  <div class="nombre">Axel</div>
+  <div id="msg">Iniciando...</div>
+  <div class="gps" id="gps-msg"></div>
+  <button class="mic-btn" id="mic-btn" onclick="pedirMicrofono()">🎙️ Activar micrófono</button>
+  <p>Esta pantalla puede minimizarse.<br/>El servicio sigue activo en segundo plano.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyDo1ywPhAW50qEpFWwBu2uEUwX-AfxTWK0",
+    authDomain: "stockdfr-94cd4.firebaseapp.com",
+    databaseURL: "https://stockdfr-94cd4-default-rtdb.firebaseio.com",
+    projectId: "stockdfr-94cd4",
+    storageBucket: "stockdfr-94cd4.firebasestorage.app",
+    messagingSenderId: "600419356379",
+    appId: "1:600419356379:web:2b1bd2b32e88f71f6886fe"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+  var HIJO = "axel";
+
+  var REF_CONTROL = db.ref("/monitor/" + HIJO + "/control");
+  var REF_OFFER   = db.ref("/monitor/" + HIJO + "/offer");
+  var REF_ANSWER  = db.ref("/monitor/" + HIJO + "/answer");
+  var REF_ICE_H   = db.ref("/monitor/" + HIJO + "/ice_hijo");
+  var REF_ICE_P   = db.ref("/monitor/" + HIJO + "/ice_padre");
+  var REF_STATUS  = db.ref("/monitor/" + HIJO + "/status");
+  var REF_GPS     = db.ref("/monitor/" + HIJO + "/gps");
+
+  var dot = document.getElementById("dot");
+  var msg = document.getElementById("msg");
+  var gpsMsg = document.getElementById("gps-msg");
+  var micBtn = document.getElementById("mic-btn");
+
+  function setMsg(t, on) { msg.textContent = t; dot.className = "dot" + (on ? " active" : ""); }
+
+  var pc = null, localStream = null, transmitting = false;
+  var ICE_SERVERS = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+  REF_STATUS.set({ online: true });
+  REF_STATUS.onDisconnect().set({ online: false });
+
+  // ── GPS ──────────────────────────────────────────────────────────
+  function startGPS() {
+    if (!navigator.geolocation) { gpsMsg.textContent = "GPS no disponible"; return; }
+    navigator.geolocation.watchPosition(
+      function(pos) {
+        var lat = pos.coords.latitude;
+        var lng = pos.coords.longitude;
+        var acc = Math.round(pos.coords.accuracy);
+        REF_GPS.set({ lat: lat, lng: lng, acc: acc, ts: Date.now() });
+        gpsMsg.textContent = "📍 GPS activo (" + acc + "m)";
+      },
+      function(err) { gpsMsg.textContent = "GPS: " + err.message; },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
+    );
+  }
+
+  // ── Micrófono ────────────────────────────────────────────────────
+  function pedirMicrofono() {
+    micBtn.textContent = "Activando...";
+    micBtn.disabled = true;
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      video: false
+    }).then(function(stream) {
+      localStream = stream;
+      micBtn.style.display = "none";
+      setMsg("✅ Listo. Esperando al padre...", false);
+      escucharControl();
+    }).catch(function(e) {
+      micBtn.textContent = "🎙️ Activar micrófono";
+      micBtn.disabled = false;
+      setMsg("⚠️ Sin micrófono: " + e.message, false);
+    });
+  }
+
+  function getMic() {
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      video: false
+    }).then(function(stream) {
+      localStream = stream;
+      setMsg("✅ Listo. Esperando al padre...", false);
+      escucharControl();
+    }).catch(function(e) {
+      // Si falla automático, mostrar botón manual
+      setMsg("Tocá el botón para activar el micrófono", false);
+      micBtn.classList.add("visible");
+    });
+  }
+
+  function escucharControl() {
+    REF_CONTROL.on("value", function(snap) {
+      var v = snap.val();
+      if (v && v.active === true) { if (!transmitting) startTransmission(); }
+      else stopTransmission();
+    });
+  }
+
+  function startTransmission() {
+    if (transmitting) return;
+    transmitting = true; setMsg("Conectando...", true);
+    REF_OFFER.remove(); REF_ANSWER.remove(); REF_ICE_H.remove(); REF_ICE_P.remove();
+    pc = new RTCPeerConnection(ICE_SERVERS);
+    localStream.getTracks().forEach(function(t) { pc.addTrack(t, localStream); });
+    pc.onicecandidate = function(e) { if (e.candidate) REF_ICE_H.push(e.candidate.toJSON()); };
+    pc.onconnectionstatechange = function() {
+      if (pc.connectionState === "connected") setMsg("✅ Transmitiendo audio en vivo", true);
+      else if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        setMsg("Conexión perdida. Esperando...", false); transmitting = false; pc.close(); pc = null;
+      }
+    };
+    REF_ICE_P.on("child_added", function(snap) {
+      var c = snap.val();
+      if (pc && c && pc.remoteDescription) pc.addIceCandidate(new RTCIceCandidate(c)).catch(function(){});
+    });
+    pc.createOffer({ offerToReceiveAudio: false }).then(function(offer) {
+      return pc.setLocalDescription(offer).then(function() {
+        return REF_OFFER.set({ type: offer.type, sdp: offer.sdp });
+      });
+    });
+    REF_ANSWER.on("value", function(snap) {
+      var a = snap.val();
+      if (!a || !pc || pc.remoteDescription) return;
+      pc.setRemoteDescription(new RTCSessionDescription(a)).catch(function(){});
+    });
+  }
+
+  function stopTransmission() {
+    transmitting = false;
+    if (pc) { pc.close(); pc = null; }
+    REF_OFFER.remove(); REF_ANSWER.remove(); REF_ICE_H.remove(); REF_ICE_P.remove();
+    setMsg("En espera. Padre desconectado.", false);
+  }
+
+  // Arrancar
+  startGPS();
+  getMic();
+
+  setInterval(function() { REF_STATUS.set({ online: true, ping: Date.now() }); }, 25000);
+</script>
+</body>
+</html>
