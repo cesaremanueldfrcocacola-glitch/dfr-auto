@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#050d1a" />
+<title>SafeKids</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#050d1a;--surface:#0d1f35;--card:#102236;--border:#1a3352;
+  --accent:#0ea5e9;--accent2:#38bdf8;--green:#22c55e;--red:#ef4444;
+  --amber:#f59e0b;--text:#f0f9ff;--muted:#64748b;--sub:#94a3b8;
+  --font:'Plus Jakarta Sans',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden;}
+.screen{display:none;min-height:100vh;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* WELCOME */
+#screen-welcome{align-items:center;justify-content:center;padding:32px 24px;background:radial-gradient(ellipse 80% 60% at 50% 0%,#0c2a4a 0%,var(--bg) 70%);}
+.logo-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:48px;}
+.logo-icon{width:72px;height:72px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:22px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 0 40px rgba(14,165,233,0.3);}
+.logo-icon svg{width:38px;height:38px;}
+.logo-name{font-size:32px;font-weight:800;letter-spacing:-0.5px;}
+.logo-name span{color:var(--accent);}
+.logo-tagline{font-size:14px;color:var(--muted);margin-top:6px;}
+.welcome-cards{display:flex;flex-direction:column;gap:14px;width:100%;max-width:340px;margin-bottom:32px;}
+.role-card{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:22px 20px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:18px;}
+.role-card:active{transform:scale(0.97);}
+.parent-card:hover{border-color:var(--accent);background:rgba(14,165,233,0.06);}
+.child-card:hover{border-color:var(--green);background:rgba(34,197,94,0.06);}
+.role-icon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.parent-card .role-icon{background:rgba(14,165,233,0.12);}
+.child-card .role-icon{background:rgba(34,197,94,0.12);}
+.role-info{flex:1;}
+.role-title{font-size:17px;font-weight:700;margin-bottom:3px;}
+.role-desc{font-size:12px;color:var(--sub);line-height:1.4;}
+.role-arrow{color:var(--muted);font-size:18px;}
+.welcome-footer{font-size:11px;color:var(--muted);text-align:center;line-height:1.6;max-width:280px;}
+
+/* CODE */
+#screen-code{align-items:center;justify-content:center;padding:32px 24px;gap:24px;position:relative;}
+.back-btn{position:absolute;top:20px;left:20px;width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.code-header{text-align:center;}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.code-header h2{font-size:24px;font-weight:800;margin-bottom:8px;}
+.code-header p{font-size:14px;color:var(--sub);line-height:1.5;max-width:280px;}
+.code-box{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:24px 20px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:14px;}
+.field-label{font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;letter-spacing:0.05em;text-transform:uppercase;}
+.field-input{width:100%;padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-size:16px;font-family:var(--font);outline:none;transition:border-color 0.2s;letter-spacing:0.1em;}
+.field-input:focus{border-color:var(--accent);}
+.field-input.normal{letter-spacing:normal;text-transform:none;}
+.field-input::placeholder{letter-spacing:normal;text-transform:none;color:var(--muted);}
+.btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s;}
+.btn-primary:active{transform:scale(0.97);}
+.btn-secondary{width:100%;padding:14px;background:transparent;border:1.5px solid var(--border);color:var(--sub);border-radius:14px;font-size:15px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* FOTO PERFIL */
+.foto-upload{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.foto-preview{width:72px;height:72px;border-radius:50%;background:var(--surface);border:2px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:28px;}
+.foto-preview img{width:100%;height:100%;object-fit:cover;}
+.foto-label{font-size:12px;color:var(--sub);cursor:pointer;}
+input[type=file]{display:none;}
+
+/* PADRE */
+#screen-padre{padding:0;overflow-y:auto;}
+.padre-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--surface);}
+.padre-header-left{display:flex;align-items:center;gap:12px;}
+.padre-avatar{width:40px;height:40px;border-radius:50%;background:var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.padre-avatar img{width:100%;height:100%;object-fit:cover;}
+.padre-name{font-size:16px;font-weight:700;}
+.padre-role{font-size:11px;color:var(--muted);}
+.family-code-badge{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:0.1em;cursor:pointer;}
+.padre-content{padding:16px;display:flex;flex-direction:column;gap:16px;}
+
+/* Hijos */
+.hijos-grid{display:flex;gap:10px;flex-wrap:wrap;}
+.hijo-pill{flex:1;min-width:80px;padding:12px 8px;background:var(--card);border:1.5px solid var(--border);border-radius:14px;cursor:pointer;text-align:center;transition:all 0.2s;font-family:var(--font);}
+.hijo-pill.active{border-color:var(--accent);background:rgba(14,165,233,0.08);}
+.hijo-pill.online-ind{border-color:var(--green);}
+.hijo-pill .h-avatar{width:36px;height:36px;border-radius:50%;background:var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 4px;}
+.hijo-pill .h-avatar img{width:100%;height:100%;object-fit:cover;}
+.hijo-pill .h-name{font-size:11px;font-weight:700;color:var(--sub);}
+.hijo-pill.active .h-name{color:var(--text);}
+.hijo-pill .h-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block;margin-top:4px;}
+.hijo-pill.online-ind .h-dot{background:var(--green);}
+
+/* Audio */
+.audio-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px;}
+.audio-orb{width:72px;height:72px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;transition:background 0.4s;}
+.audio-orb svg{width:32px;height:32px;}
+.audio-orb.listening{background:linear-gradient(135deg,var(--accent),var(--accent2));animation:orb-pulse 1.8s ease-out infinite;}
+.audio-orb.waiting{background:linear-gradient(135deg,var(--amber),#f97316);}
+@keyframes orb-pulse{0%{box-shadow:0 0 0 0 rgba(14,165,233,0.5);}70%{box-shadow:0 0 0 20px rgba(14,165,233,0);}100%{box-shadow:0 0 0 0 rgba(14,165,233,0);}}
+.audio-name{font-size:20px;font-weight:800;}
+.audio-status-title{font-size:15px;font-weight:600;}
+.audio-status-sub{font-size:12px;color:var(--sub);text-align:center;}
+.vol-wrap{width:100%;display:none;flex-direction:column;gap:5px;}
+.vol-wrap.visible{display:flex;}
+.vol-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);}
+.vol-bg{width:100%;height:6px;background:var(--border);border-radius:99px;overflow:hidden;}
+.vol-fill{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.08s linear;}
+audio{display:none;}
+.btn-listen{width:100%;padding:15px;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s;}
+.btn-listen.start{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;}
+.btn-listen.stop{background:var(--red);color:white;}
+.btn-listen:active{transform:scale(0.97);}
+
+/* Mapa */
+.map-card{background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
+.map-card-header{padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;}
+.map-card-title{font-size:14px;font-weight:700;}
+.map-gps-info{font-size:11px;color:var(--muted);}
+#padre-map{height:200px;}
+
+/* Zona peligro padre */
+.danger-zone{background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:16px;padding:16px;}
+.danger-title{font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px;}
+.btn-danger{width:100%;padding:13px;background:transparent;border:1.5px solid var(--red);color:var(--red);border-radius:12px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s;}
+.btn-danger:active{background:rgba(239,68,68,0.1);}
+
+/* HIJO */
+#screen-hijo{align-items:center;justify-content:center;padding:32px 24px;background:radial-gradient(ellipse 80% 50% at 50% 0%,#0c2a1a 0%,var(--bg) 70%);}
+.hijo-ui{display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;max-width:320px;}
+.hijo-big-avatar{width:88px;height:88px;border-radius:50%;background:var(--surface);border:3px solid var(--green);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:40px;}
+.hijo-big-avatar img{width:100%;height:100%;object-fit:cover;}
+.hijo-status-dot{width:16px;height:16px;border-radius:50%;background:var(--muted);transition:background 0.4s;}
+.hijo-status-dot.online{background:var(--green);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.hijo-name-display{font-size:26px;font-weight:800;}
+.hijo-msg{font-size:14px;color:var(--sub);text-align:center;line-height:1.5;}
+.hijo-gps{font-size:12px;color:var(--green);}
+.btn-mic{width:100%;padding:16px;background:linear-gradient(135deg,var(--green),#16a34a);color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s;display:none;}
+.btn-mic.visible{display:block;}
+.hijo-footer{font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:none;align-items:center;justify-content:center;padding:24px;}
+.modal-overlay.active{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:320px;}
+.modal h3{font-size:18px;font-weight:800;margin-bottom:8px;}
+.modal p{font-size:14px;color:var(--sub);line-height:1.5;margin-bottom:20px;}
+.modal-btns{display:flex;gap:10px;}
+.modal-btns button{flex:1;padding:13px;border-radius:12px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;border:none;}
+.btn-cancel{background:var(--surface);color:var(--sub);}
+.btn-confirm-danger{background:var(--red);color:white;}
+
+/* TOAST */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e3a5f;color:var(--text);padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;border:1px solid var(--border);transition:transform 0.3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;z-index:999;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- WELCOME -->
+<div id="screen-welcome" class="screen active">
+  <div class="logo-wrap">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+    </div>
+    <div class="logo-name">Safe<span>Kids</span></div>
+    <div class="logo-tagline">Protección familiar en tiempo real</div>
+  </div>
+  <div class="welcome-cards">
+    <div class="role-card parent-card" onclick="goToCode('padre')">
+      <div class="role-icon">👨</div>
+      <div class="role-info">
+        <div class="role-title">Soy Padre / Madre</div>
+        <div class="role-desc">Monitoreá la ubicación y escuchá a tus hijos en tiempo real</div>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+    <div class="role-card child-card" onclick="goToCode('hijo')">
+      <div class="role-icon">👦</div>
+      <div class="role-info">
+        <div class="role-title">Soy Hijo/a</div>
+        <div class="role-desc">Conectate con tu familia y compartí tu ubicación</div>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+  </div>
+  <div class="welcome-footer">🔒 Conexión cifrada · Solo funciona con consentimiento familiar</div>
+</div>
+
+<!-- CODE -->
+<div id="screen-code" class="screen" style="position:relative;">
+  <button class="back-btn" onclick="goBack()">‹</button>
+  <div class="code-header">
+    <div class="eyebrow" id="code-eyebrow">Padre / Madre</div>
+    <h2 id="code-title">Código de familia</h2>
+    <p id="code-desc">Ingresá tu código o creá uno nuevo</p>
+  </div>
+  <div class="code-box">
+    <!-- Foto -->
+    <div class="foto-upload">
+      <div class="foto-preview" id="foto-preview" onclick="document.getElementById('foto-input').click()">📷</div>
+      <div class="foto-label" onclick="document.getElementById('foto-input').click()">Tocá para agregar tu foto</div>
+      <input type="file" id="foto-input" accept="image/*" onchange="onFotoChange(event)" />
+    </div>
+    <div id="name-padre-wrap">
+      <div class="field-label">Tu nombre</div>
+      <input class="field-input normal" id="input-name-padre" type="text" placeholder="Ej: Papá, Mamá..." maxlength="20" />
+    </div>
+    <div id="name-hijo-wrap" style="display:none;">
+      <div class="field-label">Tu nombre</div>
+      <input class="field-input normal" id="input-name-hijo" type="text" placeholder="Ej: Axel, Aleks..." maxlength="20" />
+    </div>
+    <div>
+      <div class="field-label">Código de familia</div>
+      <input class="field-input" id="input-code" type="text" placeholder="Ej: FAMILIA123" maxlength="12" oninput="this.value=this.value.toUpperCase()" />
+    </div>
+    <button class="btn-primary" onclick="enterWithCode()">Entrar</button>
+    <div id="create-divider" class="divider">o</div>
+    <button class="btn-secondary" id="create-code-btn" onclick="createNewCode()">Crear nuevo código de familia</button>
+  </div>
+</div>
+
+<!-- PADRE -->
+<div id="screen-padre" class="screen">
+  <div class="padre-header">
+    <div class="padre-header-left">
+      <div class="padre-avatar" id="padre-avatar">👨</div>
+      <div>
+        <div class="padre-name" id="padre-name-display">—</div>
+        <div class="padre-role">Padre / Madre</div>
+      </div>
+    </div>
+    <div class="family-code-badge" id="padre-code-badge" title="Tocá para copiar" onclick="copiarCodigo()">---</div>
+  </div>
+  <div class="padre-content">
+    <div class="hijos-grid" id="hijos-grid">
+      <div style="color:var(--muted);font-size:13px;padding:16px 0;">Esperando que tus hijos se conecten...</div>
+    </div>
+    <div class="audio-card">
+      <div class="audio-orb" id="audio-orb">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
+      </div>
+      <div class="audio-name" id="audio-name">—</div>
+      <div class="audio-status-title" id="audio-status-title">Seleccioná un hijo</div>
+      <div class="audio-status-sub" id="audio-status-sub">Los hijos conectados aparecen arriba</div>
+      <div class="vol-wrap" id="vol-wrap">
+        <div class="vol-label">Nivel de audio</div>
+        <div class="vol-bg"><div class="vol-fill" id="vol-fill"></div></div>
+      </div>
+      <audio id="remote-audio" autoplay playsinline></audio>
+      <button class="btn-listen start" id="btn-listen" onclick="toggleAudio()">🎧 Iniciar escucha</button>
+    </div>
+    <div class="map-card">
+      <div class="map-card-header">
+        <div class="map-card-title">📍 Ubicación en vivo</div>
+        <div class="map-gps-info" id="map-gps-info">Sin datos</div>
+      </div>
+      <div id="padre-map"></div>
+    </div>
+    <div class="danger-zone">
+      <div class="danger-title">⚠️ Zona de administración</div>
+      <button class="btn-danger" onclick="confirmarEliminarCodigo()">Eliminar código de familia</button>
+    </div>
+  </div>
+</div>
+
+<!-- HIJO -->
+<div id="screen-hijo" class="screen">
+  <div class="hijo-ui">
+    <div class="hijo-big-avatar" id="hijo-big-avatar">👦</div>
+    <div class="hijo-status-dot" id="hijo-dot"></div>
+    <div class="hijo-name-display" id="hijo-name-display">—</div>
+    <div class="hijo-msg" id="hijo-msg">Iniciando...</div>
+    <div class="hijo-gps" id="hijo-gps"></div>
+    <button class="btn-mic" id="btn-mic" onclick="activarMic()">🎙️ Activar micrófono</button>
+    <div class="hijo-footer">Esta pantalla puede minimizarse.<br/>El servicio continúa en segundo plano.</div>
+  </div>
+</div>
+
+<!-- MODAL ELIMINAR CÓDIGO -->
+<div class="modal-overlay" id="modal-eliminar">
+  <div class="modal">
+    <h3>Eliminar código</h3>
+    <p>Al eliminar el código <strong id="modal-code-text"></strong>, todos tus hijos serán desconectados. ¿Estás seguro?</p>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-confirm-danger" onclick="eliminarCodigo()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyDo1ywPhAW50qEpFWwBu2uEUwX-AfxTWK0",
+  authDomain:"stockdfr-94cd4.firebaseapp.com",
+  databaseURL:"https://stockdfr-94cd4-default-rtdb.firebaseio.com",
+  projectId:"stockdfr-94cd4",
+  storageBucket:"stockdfr-94cd4.firebasestorage.app",
+  messagingSenderId:"600419356379",
+  appId:"1:600419356379:web:2b1bd2b32e88f71f6886fe"
+});
+const db = firebase.database();
+
+// ── Estado ────────────────────────────────────────────────────────
+let role=null, familyCode=null, myName=null, myPhoto=null, myHijoId=null;
+let hijoActual=null, activeAudio=false;
+let pc=null, audioCtx=null, analyser=null, animFrame=null;
+let localStream=null, transmitting=false;
+let mapInstance=null, mapMarker=null, mapCircle=null;
+let hijosListeners={};
+let fotoBase64=null;
+let currentRole=null;
+
+// ── Session storage ───────────────────────────────────────────────
+function saveSession(data) { try { localStorage.setItem('sk_session', JSON.stringify(data)); } catch(e){} }
+function loadSession() { try { return JSON.parse(localStorage.getItem('sk_session')); } catch(e){ return null; } }
+function clearSession() { try { localStorage.removeItem('sk_session'); } catch(e){} }
+
+// ── Toast ─────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+}
+
+// ── Foto ──────────────────────────────────────────────────────────
+function onFotoChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    fotoBase64 = ev.target.result;
+    const prev = document.getElementById('foto-preview');
+    prev.innerHTML = `<img src="${fotoBase64}" />`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Navegación ────────────────────────────────────────────────────
+function goToCode(r) {
+  currentRole = r;
+  const isHijo = r === 'hijo';
+  document.getElementById('code-eyebrow').textContent = isHijo ? 'Hijo / Hija' : 'Padre / Madre';
+  document.getElementById('code-title').textContent = 'Código de familia';
+  document.getElementById('code-desc').textContent = isHijo ? 'Pedile el código a tu papá o mamá' : 'Ingresá tu código o creá uno nuevo';
+  document.getElementById('name-padre-wrap').style.display = isHijo ? 'none' : 'block';
+  document.getElementById('name-hijo-wrap').style.display = isHijo ? 'block' : 'none';
+  document.getElementById('create-divider').style.display = isHijo ? 'none' : 'flex';
+  document.getElementById('create-code-btn').style.display = isHijo ? 'none' : 'block';
+  document.getElementById('foto-preview').innerHTML = '📷';
+  fotoBase64 = null;
+  showScreen('code');
+}
+
+function goBack() { showScreen('welcome'); }
+
+function generateCode() {
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:8},()=>c[Math.floor(Math.random()*c.length)]).join('');
+}
+
+function createNewCode() {
+  const code = generateCode();
+  document.getElementById('input-code').value = code;
+  toast('✅ Código generado: ' + code);
+}
+
+function copiarCodigo() {
+  if (!familyCode) return;
+  navigator.clipboard && navigator.clipboard.writeText(familyCode).then(()=>toast('📋 Código copiado: '+familyCode));
+}
+
+// ── Entrar ────────────────────────────────────────────────────────
+async function enterWithCode() {
+  const code = document.getElementById('input-code').value.trim().toUpperCase();
+  if (!code || code.length < 4) { toast('⚠️ Ingresá un código válido'); return; }
+
+  if (currentRole === 'padre') {
+    const name = document.getElementById('input-name-padre').value.trim();
+    if (!name) { toast('⚠️ Ingresá tu nombre'); return; }
+    myName = name; familyCode = code; role = 'padre';
+    myPhoto = fotoBase64;
+    // Crear/actualizar código en Firebase
+    await db.ref('/safekids/'+code+'/meta').set({ createdBy: name, ts: Date.now() });
+    saveSession({ role, familyCode, myName, myPhoto });
+    initPadre();
+
+  } else {
+    const name = document.getElementById('input-name-hijo').value.trim();
+    if (!name) { toast('⚠️ Ingresá tu nombre'); return; }
+    // Validar que el código exista
+    const snap = await db.ref('/safekids/'+code+'/meta').once('value');
+    if (!snap.exists()) {
+      toast('❌ Código incorrecto. Pedile el código a tu padre/madre');
+      return;
+    }
+    myName = name; familyCode = code; role = 'hijo';
+    myPhoto = fotoBase64;
+    saveSession({ role, familyCode, myName, myPhoto });
+    initHijo();
+  }
+}
+
+// ── Auto-login ────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const session = loadSession();
+  if (session && session.role && session.familyCode && session.myName) {
+    role = session.role;
+    familyCode = session.familyCode;
+    myName = session.myName;
+    myPhoto = session.myPhoto || null;
+
+    if (role === 'padre') {
+      // Verificar que el código aún existe
+      db.ref('/safekids/'+familyCode+'/meta').once('value').then(snap => {
+        if (snap.exists()) initPadre();
+        else { clearSession(); showScreen('welcome'); }
+      });
+    } else {
+      // Verificar que el código aún existe
+      db.ref('/safekids/'+familyCode+'/meta').once('value').then(snap => {
+        if (snap.exists()) initHijo();
+        else {
+          clearSession();
+          showScreen('welcome');
+          toast('Tu padre eliminó el código familiar');
+        }
+      });
+    }
+  }
+});
+
+// ── Escuchar si padre elimina el código ──────────────────────────
+function escucharEliminacionCodigo() {
+  db.ref('/safekids/'+familyCode+'/meta').on('value', snap => {
+    if (!snap.exists() && role === 'hijo') {
+      clearSession();
+      if (pc) { pc.close(); pc = null; }
+      showScreen('welcome');
+      toast('Tu padre eliminó el código familiar');
+    }
+  });
+}
+
+// ── PADRE ─────────────────────────────────────────────────────────
+function initPadre() {
+  showScreen('padre');
+  document.getElementById('padre-code-badge').textContent = familyCode;
+  document.getElementById('padre-name-display').textContent = myName;
+  if (myPhoto) {
+    document.getElementById('padre-avatar').innerHTML = `<img src="${myPhoto}" />`;
+  }
+  initMap();
+  escucharHijos();
+}
+
+function escucharHijos() {
+  db.ref('/safekids/'+familyCode+'/hijos').on('value', snap => {
+    const hijos = snap.val() || {};
+    const grid = document.getElementById('hijos-grid');
+    const keys = Object.keys(hijos);
+    if (keys.length === 0) {
+      grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Esperando que tus hijos se conecten...</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    keys.forEach(key => {
+      const h = hijos[key];
+      const isActive = hijoActual === key;
+      const isOnline = h.online;
+      const pill = document.createElement('button');
+      pill.className = 'hijo-pill'+(isActive?' active':'')+(isOnline?' online-ind':'');
+      const avatarHTML = h.photo ? `<img src="${h.photo}" />` : '👦';
+      pill.innerHTML = `<div class="h-avatar">${avatarHTML}</div><div class="h-name">${h.name}</div><span class="h-dot"></span>`;
+      pill.onclick = () => selectHijo(key, h.name);
+      grid.appendChild(pill);
+      if (!hijosListeners[key]) {
+        hijosListeners[key] = true;
+        db.ref('/safekids/'+familyCode+'/hijos/'+key+'/gps').on('value', gsnap => {
+          if (hijoActual === key) updateMapGPS(gsnap.val(), h.name);
+        });
+      }
+    });
+  });
+}
+
+function selectHijo(key, name) {
+  if (activeAudio) stopAudio();
+  hijoActual = key;
+  document.getElementById('audio-name').textContent = name;
+  setAudioOrb('idle');
+  escucharHijos();
+  db.ref('/safekids/'+familyCode+'/hijos/'+key+'/gps').once('value', snap => updateMapGPS(snap.val(), name));
+}
+
+// ── Audio padre ───────────────────────────────────────────────────
+const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+
+function setAudioOrb(state) {
+  const orb=document.getElementById('audio-orb');
+  orb.className='audio-orb'+(state==='listening'?' listening':state==='waiting'?' waiting':'');
+  const title=document.getElementById('audio-status-title');
+  const sub=document.getElementById('audio-status-sub');
+  const btn=document.getElementById('btn-listen');
+  const vol=document.getElementById('vol-wrap');
+  if(state==='idle'){
+    title.textContent='Listo para escuchar';sub.textContent='Tocá Iniciar para activar el micrófono remoto';
+    btn.textContent='🎧 Iniciar escucha';btn.className='btn-listen start';
+    vol.classList.remove('visible');stopVolume();
+  } else if(state==='waiting'){
+    title.textContent='Esperando conexión...';sub.textContent='Activando micrófono remoto...';
+    btn.textContent='⏹ Detener';btn.className='btn-listen stop';
+  } else if(state==='listening'){
+    title.textContent='Escuchando en vivo';sub.textContent='Audio recibido correctamente';
+    btn.textContent='⏹ Detener escucha';btn.className='btn-listen stop';
+    vol.classList.add('visible');
+  }
+}
+
+async function toggleAudio() {
+  if (!hijoActual) { toast('⚠️ Seleccioná un hijo primero'); return; }
+  if (!activeAudio) await startAudio(); else await stopAudio();
+}
+
+async function startAudio() {
+  activeAudio=true; setAudioOrb('waiting');
+  const base='safekids/'+familyCode+'/hijos/'+hijoActual+'/webrtc/';
+  await db.ref(base+'offer').remove(); await db.ref(base+'answer').remove();
+  await db.ref(base+'ice_hijo').remove(); await db.ref(base+'ice_padre').remove();
+  await db.ref('safekids/'+familyCode+'/hijos/'+hijoActual+'/control').set({active:true,ts:Date.now()});
+  if(pc){pc.close();pc=null;}
+  pc=new RTCPeerConnection(ICE);
+  pc.ontrack=(e)=>{
+    const s=e.streams[0];
+    document.getElementById('remote-audio').srcObject=s;
+    document.getElementById('remote-audio').play().catch(()=>{});
+    setAudioOrb('listening');startVolume(s);toast('✅ Audio conectado');
+  };
+  pc.onicecandidate=(e)=>{if(e.candidate)db.ref(base+'ice_padre').push(e.candidate.toJSON());};
+  pc.onconnectionstatechange=()=>{
+    if(pc&&(pc.connectionState==='disconnected'||pc.connectionState==='failed')){setAudioOrb('waiting');stopVolume();}
+  };
+  db.ref(base+'ice_hijo').on('child_added',async snap=>{
+    const c=snap.val();if(pc&&c)try{await pc.addIceCandidate(new RTCIceCandidate(c));}catch(e){}
+  });
+  db.ref(base+'offer').on('value',async snap=>{
+    const o=snap.val();if(!o||!pc||pc.remoteDescription)return;
+    await pc.setRemoteDescription(new RTCSessionDescription(o));
+    const a=await pc.createAnswer();await pc.setLocalDescription(a);
+    await db.ref(base+'answer').set({type:a.type,sdp:a.sdp});
+  });
+  toast('📡 Señal enviada');
+}
+
+async function stopAudio() {
+  activeAudio=false;
+  if(hijoActual) await db.ref('safekids/'+familyCode+'/hijos/'+hijoActual+'/control').set({active:false,ts:Date.now()});
+  if(pc){pc.close();pc=null;}
+  document.getElementById('remote-audio').srcObject=null;
+  stopVolume();setAudioOrb('idle');toast('⏹ Escucha detenida');
+}
+
+function startVolume(stream) {
+  audioCtx=new AudioContext();analyser=audioCtx.createAnalyser();analyser.fftSize=256;
+  audioCtx.createMediaStreamSource(stream).connect(analyser);
+  const buf=new Uint8Array(analyser.frequencyBinCount);
+  function tick(){analyser.getByteFrequencyData(buf);document.getElementById('vol-fill').style.width=Math.min(100,buf.reduce((a,b)=>a+b,0)/buf.length*2.5)+'%';animFrame=requestAnimationFrame(tick);}
+  tick();
+}
+function stopVolume(){if(animFrame)cancelAnimationFrame(animFrame);if(audioCtx)audioCtx.close().catch(()=>{});audioCtx=analyser=animFrame=null;document.getElementById('vol-fill').style.width='0%';}
+
+// ── Mapa ──────────────────────────────────────────────────────────
+function initMap() {
+  if(mapInstance)return;
+  mapInstance=L.map('padre-map',{zoomControl:true,attributionControl:false}).setView([-31.4,-64.18],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+}
+function updateMapGPS(v,nombre) {
+  if(!v||!v.lat){document.getElementById('map-gps-info').textContent='Sin datos';return;}
+  const mins=Math.round((Date.now()-v.ts)/60000);
+  document.getElementById('map-gps-info').textContent=`±${v.acc}m · ${mins<1?'ahora':'hace '+mins+' min'}`;
+  if(!mapInstance)initMap();
+  const ll=[v.lat,v.lng];
+  if(mapMarker){mapMarker.setLatLng(ll);mapCircle.setLatLng(ll).setRadius(v.acc);}
+  else{
+    const icon=L.divIcon({html:`<div style="background:#0ea5e9;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>`,className:'',iconSize:[14,14],iconAnchor:[7,7]});
+    mapMarker=L.marker(ll,{icon}).addTo(mapInstance).bindPopup(nombre||'Hijo');
+    mapCircle=L.circle(ll,{radius:v.acc,color:'#0ea5e9',fillColor:'#0ea5e9',fillOpacity:0.1,weight:1}).addTo(mapInstance);
+  }
+  mapInstance.setView(ll,16);
+}
+
+// ── Eliminar código ───────────────────────────────────────────────
+function confirmarEliminarCodigo() {
+  document.getElementById('modal-code-text').textContent = familyCode;
+  document.getElementById('modal-eliminar').classList.add('active');
+}
+function cerrarModal() { document.getElementById('modal-eliminar').classList.remove('active'); }
+async function eliminarCodigo() {
+  cerrarModal();
+  await db.ref('/safekids/'+familyCode).remove();
+  clearSession();
+  if(activeAudio) stopAudio();
+  familyCode=null; role=null; myName=null;
+  showScreen('welcome');
+  toast('Código eliminado. Tus hijos fueron desconectados.');
+}
+
+// ── HIJO ──────────────────────────────────────────────────────────
+function initHijo() {
+  showScreen('hijo');
+  const id = myName.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now().toString(36);
+  myHijoId = id;
+  const hijoRef = db.ref('/safekids/'+familyCode+'/hijos/'+id);
+
+  document.getElementById('hijo-name-display').textContent = myName;
+  if (myPhoto) document.getElementById('hijo-big-avatar').innerHTML = `<img src="${myPhoto}" />`;
+
+  hijoRef.set({ name: myName, online: true, photo: myPhoto||null, ts: Date.now() });
+  hijoRef.onDisconnect().update({ online: false });
+
+  // GPS
+  if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(
+      pos => {
+        const {latitude:lat,longitude:lng,accuracy:acc} = pos.coords;
+        hijoRef.child('gps').set({lat,lng,acc:Math.round(acc),ts:Date.now()});
+        document.getElementById('hijo-gps').textContent = '📍 GPS activo ('+Math.round(acc)+'m)';
+      },
+      err => { document.getElementById('hijo-gps').textContent = 'GPS: '+err.message; },
+      {enableHighAccuracy:true,maximumAge:15000,timeout:30000}
+    );
+  }
+
+  setInterval(()=>hijoRef.update({online:true,ping:Date.now()}),25000);
+
+  getMicHijo(hijoRef, id);
+
+  hijoRef.child('control').on('value', snap => {
+    const v=snap.val();
+    if(v&&v.active&&localStream) startTransmission(id);
+    else if(v&&!v.active) stopTransmission(id);
+  });
+
+  escucharEliminacionCodigo();
+}
+
+function getMicHijo(hijoRef, id) {
+  navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false
+  }).then(stream=>{
+    localStream=stream;
+    document.getElementById('hijo-msg').textContent='✅ Listo. Esperando al padre...';
+    document.getElementById('hijo-dot').classList.add('online');
+    document.getElementById('btn-mic').classList.remove('visible');
+  }).catch(()=>{
+    document.getElementById('hijo-msg').textContent='Tocá el botón para activar el micrófono';
+    document.getElementById('btn-mic').classList.add('visible');
+  });
+}
+
+function activarMic() {
+  navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false
+  }).then(stream=>{
+    localStream=stream;
+    document.getElementById('hijo-msg').textContent='✅ Listo. Esperando al padre...';
+    document.getElementById('hijo-dot').classList.add('online');
+    document.getElementById('btn-mic').classList.remove('visible');
+  }).catch(()=>toast('⚠️ No se pudo acceder al micrófono'));
+}
+
+function startTransmission(id) {
+  if(transmitting||!localStream)return;
+  transmitting=true;
+  document.getElementById('hijo-msg').textContent='Conectando...';
+  const base='safekids/'+familyCode+'/hijos/'+id+'/webrtc/';
+  db.ref(base+'offer').remove();db.ref(base+'answer').remove();
+  db.ref(base+'ice_hijo').remove();db.ref(base+'ice_padre').remove();
+  pc=new RTCPeerConnection(ICE);
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+  pc.onicecandidate=e=>{if(e.candidate)db.ref(base+'ice_hijo').push(e.candidate.toJSON());};
+  pc.onconnectionstatechange=()=>{
+    if(pc.connectionState==='connected')document.getElementById('hijo-msg').textContent='✅ Transmitiendo audio en vivo';
+    else if(pc.connectionState==='disconnected'||pc.connectionState==='failed'){
+      document.getElementById('hijo-msg').textContent='Conexión perdida. Esperando...';
+      transmitting=false;pc.close();pc=null;
+    }
+  };
+  db.ref(base+'ice_padre').on('child_added',async snap=>{
+    const c=snap.val();if(pc&&c&&pc.remoteDescription)try{await pc.addIceCandidate(new RTCIceCandidate(c));}catch(e){}
+  });
+  pc.createOffer({offerToReceiveAudio:false}).then(offer=>
+    pc.setLocalDescription(offer).then(()=>db.ref(base+'offer').set({type:offer.type,sdp:offer.sdp}))
+  );
+  db.ref(base+'answer').on('value',async snap=>{
+    const a=snap.val();if(!a||!pc||pc.remoteDescription)return;
+    try{await pc.setRemoteDescription(new RTCSessionDescription(a));}catch(e){}
+  });
+}
+
+function stopTransmission(id) {
+  transmitting=false;if(pc){pc.close();pc=null;}
+  document.getElementById('hijo-msg').textContent='⏸ En espera. Padre desconectado.';
+}
+</script>
+</body>
+</html>
